@@ -53,6 +53,19 @@ public:
     virtual bool onMouseEvent(const MouseEvent& mouseEvent) override { return false; }
     virtual bool onKeyEvent(const KeyboardEvent& keyEvent) override { return false; }
 
+
+    void createDiffusePass();
+    void createBSSRDFPass();
+    void createSpecularPass();
 private:
-    BSSRDFPass() : RenderPass(kInfo) {}
+    BSSRDFPass();
+private:
+    FullScreenPass::SharedPtr mpBSSRDFPass;
+    Fbo::SharedPtr mpLuminanceFbo;
+    Sampler::SharedPtr mpLinearSampler;
+    Sampler::SharedPtr mpPointSampler;
+
+    float mUScale;
+    float mVScale;
+    float mD;
 };
