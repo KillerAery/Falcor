@@ -36,8 +36,8 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
-    <ShaderSource Include="BSSRDF.hlsl" />
     <ShaderSource Include="BSSRDFParams.slang" />
+    <ShaderSource Include="BSSRDFPass.hlsl" />
     <ShaderSource Include="DiffusePass.hlsl" />
     <ShaderSource Include="SpecularPass.hlsl" />
   </ItemGroup>
