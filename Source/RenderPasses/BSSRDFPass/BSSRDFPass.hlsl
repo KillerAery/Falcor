@@ -1,7 +1,8 @@
+import RenderPasses.BSSRDFPass.BSSRDFParams;
 
 cbuffer PerFrameCB : register(b0)
 {
-    float4x4 InverseScreenAndProj;
+    BSSRDFParams gParams;
 };
 
 SamplerState gTexDiffuseSampler : register(s0);
@@ -41,7 +42,7 @@ float4 bssrdfFilter3x3(
     for(int i = 0 ; i < 8 ; i++)
     {
         float depth = texDepth.SampleLevel(gTexDepthSampler, uv + dt[i], 0.f);
-        float dist = length(mul(float4(dt[i],depth,1.f)-pos, InverseScreenAndProj));
+        float dist = length(mul(float4(dt[i],depth,1.f)-pos, gParams.InverseScreenAndProj));
         w = DiffusionProfile(dist, d);
         color += texDiffuse.SampleLevel(gTexDiffuseSampler, uv + dt[i], 0.f) * w;
         sum += w;
@@ -51,5 +52,12 @@ float4 bssrdfFilter3x3(
 
 float4 main(float2 texC : TEXCOORD) : SV_TARGET0
 {
-    return bssrdfFilter3x3(gTexDiffuse, gTexPos, texC, 1.0f , 1.0f, 1.0f);
+    return bssrdfFilter3x3(
+        gTexDiffuse, 
+        gTexDepth, 
+        texC, 
+        gParams.d, 
+        gParams.uScale, 
+        gParams.vScale
+        );
 }

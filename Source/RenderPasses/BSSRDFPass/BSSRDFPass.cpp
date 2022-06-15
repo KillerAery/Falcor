@@ -100,11 +100,19 @@ void BSSRDFPass::execute(RenderContext* pRenderContext, const RenderData& render
     Fbo::SharedPtr pFbo = Fbo::create();
     pFbo->attachColorTarget(pDst, 0);
 
-    // Run main pass
     mpBSSRDFPass["gTexDiffuse"] = pTexDiffuse;
     mpBSSRDFPass["gTexDiffuseSampler"] = mpLinearSampler;
     mpBSSRDFPass["gTexDepth"] = pTexDepth;
     mpBSSRDFPass["gTexDepthSampler"] = mpPointSampler;
+
+    BSSRDFParams params;
+    params.InverseScreenAndProj = static_cast<float4x4>(
+            mpScene->getCamera()->getInvViewProjMatrix()
+        );
+    params.uScale = mUScale;
+    params.vScale = mVScale;
+    params.d = mD;
+    mpBSSRDFPass->getRootVar()["PerFrameCB"]["gParams"].setBlob(&params, sizeof(params));
 
     mpBSSRDFPass->execute(pRenderContext, pFbo);
 }
@@ -117,6 +125,11 @@ void BSSRDFPass::renderUI(Gui::Widgets& widget)
         bssrdfGroup.var("vScale", mVScale, 0.01f, 10.f, 0.1f, false, "%.1f");
         bssrdfGroup.var("d", mD, 0.1f, 100.0f, 0.1f, false, "%.1f");
     }
+}
+
+void BSSRDFPass::setScene(RenderContext* pRenderContext, const Scene::SharedPtr& pScene)
+{
+    mpScene = pScene;
 }
 
 void BSSRDFPass::createDiffusePass()
