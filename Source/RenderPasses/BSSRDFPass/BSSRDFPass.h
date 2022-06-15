@@ -67,7 +67,7 @@ private:
     Sampler::SharedPtr mpPointSampler;
     Scene::SharedPtr mpScene;
 
-    float mUScale;
-    float mVScale;
-    float mD;
+    float mUScale = 1.0f;
+    float mVScale = 1.0f;
+    float mD = 1.0f;
 };

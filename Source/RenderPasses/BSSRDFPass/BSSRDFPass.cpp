@@ -32,7 +32,7 @@ const RenderPass::Info BSSRDFPass::kInfo { "BSSRDFPass", "Insert pass descriptio
 namespace
 {
     const char kTexDiffuse[] = "texDiffuse";
-    const char kTexDepth[] = "texPos";
+    const char kTexDepth[] = "texDepth";
     const char kDst[]    = "dst";
     const char kUScale[] = "uScale";
     const char kVScale[] = "vScale";
@@ -139,7 +139,6 @@ void BSSRDFPass::createDiffusePass()
 void BSSRDFPass::createBSSRDFPass()
 {
     Program::DefineList defines;
-
     mpBSSRDFPass = FullScreenPass::create(kBSSRDFFile, defines);
 }
 

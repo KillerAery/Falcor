@@ -8,8 +8,8 @@ cbuffer PerFrameCB : register(b0)
 SamplerState gTexDiffuseSampler : register(s0);
 SamplerState gTexDepthSampler : register(s1);
 
-Texture2D gTexDiffuse;
-Texture2D gTexDepth;
+Texture2D<float4> gTexDiffuse;
+Texture2D<float> gTexDepth;
 
 static const float PI = 3.1415926f;
 
