@@ -3,7 +3,7 @@
 
 BEGIN_NAMESPACE_FALCOR
 
-struct BSSRDFParams
+struct SSSParams
 {
     float4x4 InverseScreenAndProj;
     float uScale;

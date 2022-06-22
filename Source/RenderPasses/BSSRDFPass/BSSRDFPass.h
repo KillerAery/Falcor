@@ -1,4 +1,4 @@
-/***************************************************************************
+﻿/***************************************************************************
  # Copyright (c) 2015-21, NVIDIA CORPORATION. All rights reserved.
  #
  # Redistribution and use in source and binary forms, with or without
@@ -66,8 +66,10 @@ private:
 
     GraphicsState::SharedPtr mpDiffusePassState;    // diffuse pass：渲染状态
     GraphicsVars::SharedPtr mpDiffusePassVars;      // diffuse pass: 渲染变量
+    Fbo::SharedPtr mpDiffuseFbo;
 
     FullScreenPass::SharedPtr mpSSSPass;            // SSS pass
+    Fbo::SharedPtr mpSSSFbo;
 
     GraphicsState::SharedPtr mpSpecularPassState;
     GraphicsVars::SharedPtr mpSpecularPassVars;
@@ -78,9 +80,11 @@ private:
     Texture::SharedPtr mpTexNormal;
     Texture::SharedPtr mpTexRoughness;
     Texture::SharedPtr mpTexCavity;
-
+    Texture::SharedPtr mpVisBuffer;
 
     float mUScale = 1.0f;
     float mVScale = 1.0f;
     float mD = 1.0f;
+    uint32_t mFrameCount = 0;                       ///< Frames rendered. This is used as random seed.
+    uint2 mOutputSize;
 };

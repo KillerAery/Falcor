@@ -1,4 +1,4 @@
-/***************************************************************************
+﻿/***************************************************************************
  # Copyright (c) 2015-21, NVIDIA CORPORATION. All rights reserved.
  #
  # Redistribution and use in source and binary forms, with or without
@@ -48,7 +48,7 @@ namespace
 
 
     const char kDiffusePassFile[] = "RenderPasses/BSSRDFPass/DiffusePass.hlsl";
-    const char kBSSRDFPassFile[] = "RenderPasses/BSSRDFPass/BSSRDFPass.hlsl";
+    const char kSSSPassFile[] = "RenderPasses/BSSRDFPass/SSSPass.hlsl";
     const char kSpecularPassFile[] = "RenderPasses/BSSRDFPass/SpecularPass.hlsl";
 
 }
@@ -75,6 +75,10 @@ Dictionary BSSRDFPass::getScriptingDictionary()
     d[kUScale] = mUScale;
     d[kVScale] = mVScale;
     d[kD] = mD;
+    // d[kTexAlbedo] = mpTexAlbedo;
+    // d[kTexNormal] = mpTexNormal;
+    // d[kTexRoughness] = mpTexRoughness;
+    // d[kTexCavity] = mpTexCavity;
     return d;
 }
 
@@ -82,28 +86,60 @@ RenderPassReflection BSSRDFPass::reflect(const CompileData& compileData)
 {
     // Define the required resources here
     RenderPassReflection reflector;
-    // reflector.addInput(kTexDiffuse, "input diffuse texture");
-    // reflector.addInput(kTexDepth, "input depth buffer");
     reflector.addInput(kTexAlbedo,"");
     reflector.addInput(kTexCavity,"");
     reflector.addInput(kTexNormal,"");
     reflector.addInput(kTexRoughness,"");
-    // reflector.addInput(kVisBuffer, "Visibility buffer used for shadowing. Range is [0,1] where 0 means the pixel is fully-shadowed and 1 means the pixel is not shadowed at all").flags(RenderPassReflection::Field::Flags::Optional);
+    reflector.addInput(kVisBuffer, "Visibility buffer used for shadowing. Range is [0,1] where 0 means the pixel is fully-shadowed and 1 means the pixel is not shadowed at all").flags(RenderPassReflection::Field::Flags::Optional);
 
-    const uint2 sz = RenderPassHelpers::calculateIOSize(RenderPassHelpers::IOSize::Default, { 512, 512 }, compileData.defaultTexDims);
-    reflector.addOutput(kDst, "output texture").texture2D(sz.x, sz.y);
+    mOutputSize = RenderPassHelpers::calculateIOSize(RenderPassHelpers::IOSize::Fixed, { 1024, 1024 }, compileData.defaultTexDims);
+    reflector.addOutput(kDst, "output texture").texture2D(mOutputSize.x, mOutputSize.y);
 
     return reflector;
 }
 
 void BSSRDFPass::execute(RenderContext* pRenderContext, const RenderData& renderData)
 {
-    // renderData holds the requested resources
-    auto pTexDiffuse = renderData[kTexDiffuse]->asTexture();
-    auto pTexDepth = renderData[kTexDepth]->asTexture();
-    auto pDst = renderData[kDst]->asTexture();
-    FALCOR_ASSERT(pTexDiffuse && pTexDepth && pDst);
+    if (!mpScene) return;
+    // -------------------------------------------------------------------------------------------------------
+    // Diffuse Pass：采用几何 Pass
+    // ------------------------------------------------------------------------------------------------------    mpDiffusePassVars->setSampler("gLinearSampler", mpLinearSampler);
 
+    mpTexAlbedo = renderData[kTexAlbedo]->asTexture();
+    mpDiffusePassVars->setTexture("gTexAlbedo", mpTexAlbedo);
+    mpTexNormal = renderData[kTexNormal]->asTexture();
+    mpDiffusePassVars->setTexture("gTexNormal", mpTexNormal);
+    mpTexRoughness = renderData[kTexRoughness]->asTexture();
+    mpDiffusePassVars->setTexture("gTexRoughness", mpTexRoughness);
+    mpTexCavity = renderData[kTexCavity]->asTexture();
+    mpDiffusePassVars->setTexture("gTexCavity", mpTexCavity);
+    mpVisBuffer = renderData[kVisBuffer]->asTexture();
+    mpDiffusePassVars->setTexture("gVisBuffer", mpVisBuffer);
+
+    mpDiffusePassVars["PerFrameCB"]["gFrameCount"] = mFrameCount++;
+    FALCOR_ASSERT(mpDiffusePassState && mpDiffusePassVars);
+
+    // 输出 diffuse texture
+    Texture::SharedPtr pTexDiffuse = Texture::create2D(
+        mOutputSize.x, mOutputSize.y,
+        ResourceFormat::RGBA32Float, 1, 1, nullptr, Resource::BindFlags::RenderTarget | Resource::BindFlags::ShaderResource);
+    mpDiffuseFbo->attachColorTarget(pTexDiffuse,0);
+    // 输出 depth texture
+    Texture::SharedPtr pTexDepth = Texture::create2D(
+        mOutputSize.x, mOutputSize.y,
+        ResourceFormat::D32Float, 1, 1, nullptr, Resource::BindFlags::ShaderResource | Resource::BindFlags::DepthStencil);
+    mpDiffuseFbo->attachDepthStencilTarget(pTexDepth);
+
+    mpDiffusePassState->setFbo(mpDiffuseFbo);
+    mpScene->rasterize(pRenderContext, mpDiffusePassState.get(), mpDiffusePassVars.get());
+
+
+    // -------------------------------------------------------------------------------------------------------
+    // SSS Pass：采用屏幕空间 Pass
+    // -------------------------------------------------------------------------------------------------------
+    auto pDst = renderData[kDst]->asTexture();
+
+    FALCOR_ASSERT(pTexDiffuse && pTexDepth && pDst);
     // Issue warning if image will be resampled. The render pass supports this but image quality may suffer.
     if (pTexDiffuse->getWidth() != pDst->getWidth() || pTexDiffuse->getHeight() != pDst->getHeight() ||
         pTexDepth->getWidth() != pDst->getWidth() || pTexDepth->getHeight() != pDst->getHeight()
@@ -112,25 +148,12 @@ void BSSRDFPass::execute(RenderContext* pRenderContext, const RenderData& render
         logWarning("BSSRDF pass I/O has different dimensions. The image will be resampled.");
     }
 
-    Fbo::SharedPtr pFbo = Fbo::create();
-    pFbo->attachColorTarget(pDst, 0);
-
-    // Diffuse Pass：采用几何 Pass
-    mpDiffusePassState->setFbo(pFbo);
-    mpDiffusePassVars->setSampler("gLinearSampler", mpLinearSampler);
-    mpDiffusePassVars->setTexture("gTexAlbedo", mpTexAlbedo);
-    mpDiffusePassVars->setTexture("gTexNormal", mpTexNormal);
-    mpDiffusePassVars->setTexture("gTexRoughness", mpTexRoughness);
-
-    mpScene->rasterize(pRenderContext, mpDiffusePassState.get(), mpDiffusePassVars.get());
-
-    // SSS Pass：采用屏幕空间 Pass
-    mpSSSPass["gTexDiffuse"] = pFbo->getColorTexture(0);
+    mpSSSPass["gTexDiffuse"] = pTexDiffuse;
+    mpSSSPass["gTexDepth"] = pTexDepth;
     mpSSSPass["gTexDiffuseSampler"] = mpLinearSampler;
-    mpSSSPass["gTexDepth"] = pFbo->getDepthStencilTexture();
     mpSSSPass["gTexDepthSampler"] = mpPointSampler;
 
-    BSSRDFParams params;
+    SSSParams params;
     params.InverseScreenAndProj = static_cast<float4x4>(
             mpScene->getCamera()->getInvViewProjMatrix()
         );
@@ -139,7 +162,8 @@ void BSSRDFPass::execute(RenderContext* pRenderContext, const RenderData& render
     params.d = mD;
     mpSSSPass->getRootVar()["PerFrameCB"]["gParams"].setBlob(&params, sizeof(params));
 
-    mpSSSPass->execute(pRenderContext, pFbo);
+    mpSSSFbo->attachColorTarget(pDst, 0);
+    mpSSSPass->execute(pRenderContext, mpSSSFbo);
 }
 
 void BSSRDFPass::renderUI(Gui::Widgets& widget)
@@ -155,13 +179,11 @@ void BSSRDFPass::renderUI(Gui::Widgets& widget)
 void BSSRDFPass::setScene(RenderContext* pRenderContext, const Scene::SharedPtr& pScene)
 {
     mpScene = pScene;
-    mpDiffusePassVars = nullptr;
-    if (mpScene)
-    {
-        mpDiffusePassState->getProgram()->addDefines(mpScene->getSceneDefines());
-        mpDiffusePassState->getProgram()->setTypeConformances(mpScene->getTypeConformances());
-        mpDiffusePassVars = GraphicsVars::create(mpDiffusePassState->getProgram()->getReflector());
-    }
+    if (!mpScene)return;
+    mpDiffusePassState->getProgram()->addDefines(mpScene->getSceneDefines());
+    mpDiffusePassState->getProgram()->setTypeConformances(mpScene->getTypeConformances());
+    mpDiffusePassVars = GraphicsVars::create(mpDiffusePassState->getProgram()->getReflector());
+    createSampler();
 }
 
 void BSSRDFPass::createDiffusePass()
@@ -170,20 +192,35 @@ void BSSRDFPass::createDiffusePass()
     DepthStencilState::Desc desc;
     desc.setStencilWriteMask(0x1);
     desc.setDepthWriteMask(true).setDepthFunc(DepthStencilState::Func::LessEqual);
-    DepthStencilState::SharedPtr mpDsc = DepthStencilState::create(desc);
+    DepthStencilState::SharedPtr pDsc = DepthStencilState::create(desc);
 
     // 创建 shader
     GraphicsProgram::SharedPtr pProgram = GraphicsProgram::createFromFile(
         kDiffusePassFile, "vsMain", "psMain");
     mpDiffusePassState = GraphicsState::create();
     mpDiffusePassState->setProgram(pProgram);
-    mpDiffusePassState->setDepthStencilState(mpDsc);
+    mpDiffusePassState->setDepthStencilState(pDsc);
+
+    // 创建 FrameBuffer
+    mpDiffuseFbo = Fbo::create();
 }
 
 void BSSRDFPass::createSSSPass()
 {
     Program::DefineList defines;
-    mpSSSPass = FullScreenPass::create(kBSSRDFPassFile, defines);
+    mpSSSPass = FullScreenPass::create(kSSSPassFile, defines);
+
+    // stencil test 0x1
+    DepthStencilState::Desc desc;
+    desc.setStencilEnabled(true);
+    desc.setStencilReadMask(0x1);
+    desc.setDepthWriteMask(false);
+    desc.setDepthEnabled(false);
+    DepthStencilState::SharedPtr pDsc = DepthStencilState::create(desc);
+    mpSSSPass->getState()->setDepthStencilState(pDsc);
+
+    // 创建 FrameBuffer
+    mpSSSFbo = Fbo::create();
 }
 
 void BSSRDFPass::createSpecularPass()

@@ -37,9 +37,9 @@
   </ItemGroup>
   <ItemGroup>
     <ShaderSource Include="BSSRDFParams.slang" />
-    <ShaderSource Include="BSSRDFPass.hlsl" />
     <ShaderSource Include="DiffusePass.hlsl" />
     <ShaderSource Include="SpecularPass.hlsl" />
+    <ShaderSource Include="SSSPass.hlsl" />
   </ItemGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
