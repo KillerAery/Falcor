@@ -1,7 +1,10 @@
 from falcor import *
 
+def WindowsPath(s):
+    return ("C:/Project/Falcor/Media/") + s
+
 def render_graph_DefaultRenderGraph():
-    g = RenderGraph('DefaultRenderGraph')
+    g = RenderGraph('BSSRDF')
     loadRenderPassLibrary('AccumulatePass.dll')
     loadRenderPassLibrary('BSDFViewer.dll')
     loadRenderPassLibrary('Antialiasing.dll')
@@ -36,22 +39,29 @@ def render_graph_DefaultRenderGraph():
     loadRenderPassLibrary('TemporalDelayPass.dll')
     loadRenderPassLibrary('TestPasses.dll')
     loadRenderPassLibrary('Utils.dll')
-    BSSRDFPass = createPass('BSSRDFPass', {'uScale': 1.0, 'vScale': 1.0})
+    RoughnessTexture = createPass('ImageLoader', {'outputSize': IOSize.Default, 'filename': WindowsPath('Yuri/FaceRoughness_MAIN.BMP'), 'mips': False, 'srgb': False, 'arrayIndex': 0, 'mipLevel': 0})
+    g.addPass(RoughnessTexture, 'RoughnessTexture')
+    BSSRDFPass = createPass('BSSRDFPass', {'uScale': 1.0, 'vScale': 1.0, 'd': 1.0})
     g.addPass(BSSRDFPass, 'BSSRDFPass')
-    SkyBox = createPass('SkyBox', {'loadAsSrgb': True, 'filter': SamplerFilter.Linear})
-    g.addPass(SkyBox, 'SkyBox')
+    AlbedoTexture = createPass('ImageLoader', {'outputSize': IOSize.Default, 'filename': WindowsPath('Yuri/FaceColor_MAIN.HDR'), 'mips': False, 'srgb': True, 'arrayIndex': 0, 'mipLevel': 0})
+    g.addPass(AlbedoTexture, 'AlbedoTexture')
     DepthPass = createPass('DepthPass', {'depthFormat': ResourceFormat.D32Float, 'useAlphaTest': True})
     g.addPass(DepthPass, 'DepthPass')
-    ForwardLightingPass = createPass('ForwardLightingPass', {'sampleCount': 1, 'enableSuperSampling': False})
-    g.addPass(ForwardLightingPass, 'ForwardLightingPass')
-    g.addEdge('DepthPass.depth', 'SkyBox.depth')
-    g.addEdge('DepthPass.depth', 'BSSRDFPass.texDepth')
-    g.addEdge('SkyBox.target', 'ForwardLightingPass.color')
-    g.addEdge('DepthPass.depth', 'ForwardLightingPass.depth')
-    g.addEdge('ForwardLightingPass.color', 'BSSRDFPass.texDiffuse')
+    CavityTexture = createPass('ImageLoader', {'outputSize': IOSize.Default, 'filename': WindowsPath('Yuri/FaceCavity_MAIN.BMP'), 'mips': False, 'srgb': False, 'arrayIndex': 0, 'mipLevel': 0})
+    g.addPass(CavityTexture, 'CavityTexture')
+    CSM = createPass('CSM', {'mapSize': uint2(2048,2048), 'visibilityBufferSize': uint2(0,0), 'cascadeCount': 4, 'visibilityMapBitsPerChannel': 32, 'kSdsmReadbackLatency': 1, 'blurWidth': 5, 'blurSigma': 2.0})
+    g.addPass(CSM, 'CSM')
+    NormalTexture = createPass('ImageLoader', {'outputSize': IOSize.Default, 'filename': WindowsPath('Yuri/FaceNormal_MAIN.BMP'), 'mips': False, 'srgb': False, 'arrayIndex': 0, 'mipLevel': 0})
+    g.addPass(NormalTexture, 'NormalTexture')
+    g.addEdge('DepthPass.depth', 'CSM.depth')
+    g.addEdge('CSM.visibility', 'BSSRDFPass.visBuffer')
+    g.addEdge('AlbedoTexture.dst', 'BSSRDFPass.texAlbedo')
+    g.addEdge('RoughnessTexture.dst', 'BSSRDFPass.texRoughness')
+    g.addEdge('CavityTexture.dst', 'BSSRDFPass.texCavity')
+    g.addEdge('NormalTexture.dst', 'BSSRDFPass.texNormal')
     g.markOutput('BSSRDFPass.dst')
     return g
 
-DefaultRenderGraph = render_graph_DefaultRenderGraph()
-try: m.addGraph(DefaultRenderGraph)
+SSSRenderGraph = render_graph_DefaultRenderGraph()
+try: m.addGraph(SSSRenderGraph)
 except NameError: None

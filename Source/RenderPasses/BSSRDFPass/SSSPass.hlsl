@@ -1,12 +1,12 @@
 import RenderPasses.BSSRDFPass.BSSRDFParams;
 
-cbuffer PerFrameCB : register(b0)
+cbuffer PerFrameCB
 {
-    BSSRDFParams gParams;
+    SSSParams gParams;
 };
 
-SamplerState gTexDiffuseSampler : register(s0);
-SamplerState gTexDepthSampler : register(s1);
+SamplerState gTexDiffuseSampler;
+SamplerState gTexDepthSampler;
 
 Texture2D<float4> gTexDiffuse;
 Texture2D<float> gTexDepth;
