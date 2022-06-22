@@ -54,18 +54,31 @@ public:
     virtual bool onMouseEvent(const MouseEvent& mouseEvent) override { return false; }
     virtual bool onKeyEvent(const KeyboardEvent& keyEvent) override { return false; }
 
-
     void createDiffusePass();
-    void createBSSRDFPass();
+    void createSSSPass();
     void createSpecularPass();
+
+    void createSampler();
 private:
     BSSRDFPass();
 private:
-    FullScreenPass::SharedPtr mpBSSRDFPass;
-    Fbo::SharedPtr mpLuminanceFbo;
-    Sampler::SharedPtr mpLinearSampler;
-    Sampler::SharedPtr mpPointSampler;
-    Scene::SharedPtr mpScene;
+    Scene::SharedPtr mpScene;                   // 场景
+
+    GraphicsState::SharedPtr mpDiffusePassState;    // diffuse pass：渲染状态
+    GraphicsVars::SharedPtr mpDiffusePassVars;      // diffuse pass: 渲染变量
+
+    FullScreenPass::SharedPtr mpSSSPass;            // SSS pass
+
+    GraphicsState::SharedPtr mpSpecularPassState;
+    GraphicsVars::SharedPtr mpSpecularPassVars;
+
+    Sampler::SharedPtr mpLinearSampler;         // 线性采样器定义
+    Sampler::SharedPtr mpPointSampler;          // 点采样器定义
+    Texture::SharedPtr mpTexAlbedo;
+    Texture::SharedPtr mpTexNormal;
+    Texture::SharedPtr mpTexRoughness;
+    Texture::SharedPtr mpTexCavity;
+
 
     float mUScale = 1.0f;
     float mVScale = 1.0f;

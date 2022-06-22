@@ -27,20 +27,29 @@
  **************************************************************************/
 #include "BSSRDFPass.h"
 
-const RenderPass::Info BSSRDFPass::kInfo { "BSSRDFPass", "Insert pass description here." };
+const RenderPass::Info BSSRDFPass::kInfo { "BSSRDFPass", "包含 3 个 pass：Diffuse Pass->SSS Pass->Specular Pass" };
 
 namespace
 {
+    const char kTexAlbedo[] = "texAlbedo";
+    const char kTexNormal[] = "texNormal";
+    const char kTexRoughness[] = "texRoughness";
+    const char kTexCavity[] = "texCavity";
+    const char kVisBuffer[] = "visBuffer";
+
     const char kTexDiffuse[] = "texDiffuse";
     const char kTexDepth[] = "texDepth";
+    const char kD[] = "d";
+
     const char kDst[]    = "dst";
+
     const char kUScale[] = "uScale";
     const char kVScale[] = "vScale";
 
 
-    const char kDiffuseFile[] = "RenderPasses/BSSRDFPass/DiffusePass.hlsl";
-    const char kBSSRDFFile[] = "RenderPasses/BSSRDFPass/BSSRDFPass.hlsl";
-    const char kSpecularFile[] = "RenderPasses/BSSRDFPass/SpecularPass.hlsl";
+    const char kDiffusePassFile[] = "RenderPasses/BSSRDFPass/DiffusePass.hlsl";
+    const char kBSSRDFPassFile[] = "RenderPasses/BSSRDFPass/BSSRDFPass.hlsl";
+    const char kSpecularPassFile[] = "RenderPasses/BSSRDFPass/SpecularPass.hlsl";
 
 }
 
@@ -65,6 +74,7 @@ Dictionary BSSRDFPass::getScriptingDictionary()
     Dictionary d;
     d[kUScale] = mUScale;
     d[kVScale] = mVScale;
+    d[kD] = mD;
     return d;
 }
 
@@ -72,11 +82,16 @@ RenderPassReflection BSSRDFPass::reflect(const CompileData& compileData)
 {
     // Define the required resources here
     RenderPassReflection reflector;
-    reflector.addInput(kTexDiffuse, "input diffuse texture");
-    reflector.addInput(kTexDepth, "input depth buffer");
+    // reflector.addInput(kTexDiffuse, "input diffuse texture");
+    // reflector.addInput(kTexDepth, "input depth buffer");
+    reflector.addInput(kTexAlbedo,"");
+    reflector.addInput(kTexCavity,"");
+    reflector.addInput(kTexNormal,"");
+    reflector.addInput(kTexRoughness,"");
+    // reflector.addInput(kVisBuffer, "Visibility buffer used for shadowing. Range is [0,1] where 0 means the pixel is fully-shadowed and 1 means the pixel is not shadowed at all").flags(RenderPassReflection::Field::Flags::Optional);
 
     const uint2 sz = RenderPassHelpers::calculateIOSize(RenderPassHelpers::IOSize::Default, { 512, 512 }, compileData.defaultTexDims);
-    reflector.addOutput(kDst, " output texture").texture2D(sz.x, sz.y);
+    reflector.addOutput(kDst, "output texture").texture2D(sz.x, sz.y);
 
     return reflector;
 }
@@ -100,10 +115,20 @@ void BSSRDFPass::execute(RenderContext* pRenderContext, const RenderData& render
     Fbo::SharedPtr pFbo = Fbo::create();
     pFbo->attachColorTarget(pDst, 0);
 
-    mpBSSRDFPass["gTexDiffuse"] = pTexDiffuse;
-    mpBSSRDFPass["gTexDiffuseSampler"] = mpLinearSampler;
-    mpBSSRDFPass["gTexDepth"] = pTexDepth;
-    mpBSSRDFPass["gTexDepthSampler"] = mpPointSampler;
+    // Diffuse Pass：采用几何 Pass
+    mpDiffusePassState->setFbo(pFbo);
+    mpDiffusePassVars->setSampler("gLinearSampler", mpLinearSampler);
+    mpDiffusePassVars->setTexture("gTexAlbedo", mpTexAlbedo);
+    mpDiffusePassVars->setTexture("gTexNormal", mpTexNormal);
+    mpDiffusePassVars->setTexture("gTexRoughness", mpTexRoughness);
+
+    mpScene->rasterize(pRenderContext, mpDiffusePassState.get(), mpDiffusePassVars.get());
+
+    // SSS Pass：采用屏幕空间 Pass
+    mpSSSPass["gTexDiffuse"] = pFbo->getColorTexture(0);
+    mpSSSPass["gTexDiffuseSampler"] = mpLinearSampler;
+    mpSSSPass["gTexDepth"] = pFbo->getDepthStencilTexture();
+    mpSSSPass["gTexDepthSampler"] = mpPointSampler;
 
     BSSRDFParams params;
     params.InverseScreenAndProj = static_cast<float4x4>(
@@ -112,9 +137,9 @@ void BSSRDFPass::execute(RenderContext* pRenderContext, const RenderData& render
     params.uScale = mUScale;
     params.vScale = mVScale;
     params.d = mD;
-    mpBSSRDFPass->getRootVar()["PerFrameCB"]["gParams"].setBlob(&params, sizeof(params));
+    mpSSSPass->getRootVar()["PerFrameCB"]["gParams"].setBlob(&params, sizeof(params));
 
-    mpBSSRDFPass->execute(pRenderContext, pFbo);
+    mpSSSPass->execute(pRenderContext, pFbo);
 }
 
 void BSSRDFPass::renderUI(Gui::Widgets& widget)
@@ -130,30 +155,53 @@ void BSSRDFPass::renderUI(Gui::Widgets& widget)
 void BSSRDFPass::setScene(RenderContext* pRenderContext, const Scene::SharedPtr& pScene)
 {
     mpScene = pScene;
+    mpDiffusePassVars = nullptr;
+    if (mpScene)
+    {
+        mpDiffusePassState->getProgram()->addDefines(mpScene->getSceneDefines());
+        mpDiffusePassState->getProgram()->setTypeConformances(mpScene->getTypeConformances());
+        mpDiffusePassVars = GraphicsVars::create(mpDiffusePassState->getProgram()->getReflector());
+    }
 }
 
 void BSSRDFPass::createDiffusePass()
 {
+    // 写入 stencil 0x1：表示皮肤部分
+    DepthStencilState::Desc desc;
+    desc.setStencilWriteMask(0x1);
+    desc.setDepthWriteMask(true).setDepthFunc(DepthStencilState::Func::LessEqual);
+    DepthStencilState::SharedPtr mpDsc = DepthStencilState::create(desc);
+
+    // 创建 shader
+    GraphicsProgram::SharedPtr pProgram = GraphicsProgram::createFromFile(
+        kDiffusePassFile, "vsMain", "psMain");
+    mpDiffusePassState = GraphicsState::create();
+    mpDiffusePassState->setProgram(pProgram);
+    mpDiffusePassState->setDepthStencilState(mpDsc);
 }
 
-void BSSRDFPass::createBSSRDFPass()
+void BSSRDFPass::createSSSPass()
 {
     Program::DefineList defines;
-    mpBSSRDFPass = FullScreenPass::create(kBSSRDFFile, defines);
+    mpSSSPass = FullScreenPass::create(kBSSRDFPassFile, defines);
 }
 
 void BSSRDFPass::createSpecularPass()
 {
 }
 
-BSSRDFPass::BSSRDFPass(): RenderPass(kInfo)
+void BSSRDFPass::createSampler()
 {
-
-    createBSSRDFPass();
-
     Sampler::Desc samplerDesc;
     samplerDesc.setFilterMode(Sampler::Filter::Point, Sampler::Filter::Point, Sampler::Filter::Point);
     mpPointSampler = Sampler::create(samplerDesc);
     samplerDesc.setFilterMode(Sampler::Filter::Linear, Sampler::Filter::Linear, Sampler::Filter::Point);
     mpLinearSampler = Sampler::create(samplerDesc);
+}
+
+BSSRDFPass::BSSRDFPass(): RenderPass(kInfo)
+{
+    createDiffusePass();
+    createSSSPass();
+    createSpecularPass();
 }
