@@ -49,7 +49,7 @@ def render_graph_SSSRenderGraph():
     g.addPass(DepthPass, 'DepthPass')
     CavityTexture = createPass('ImageLoader', {'outputSize': IOSize.Default, 'filename': WindowsPath('Yuri/FaceCavity_MAIN.BMP'), 'mips': False, 'srgb': False, 'arrayIndex': 0, 'mipLevel': 0})
     g.addPass(CavityTexture, 'CavityTexture')
-    CSM = createPass('CSM', {'mapSize': uint2(2048,2048), 'visibilityBufferSize': uint2(0,0), 'cascadeCount': 4, 'visibilityMapBitsPerChannel': 32, 'kSdsmReadbackLatency': 1, 'blurWidth': 5, 'blurSigma': 2.0})
+    CSM = createPass('CSM', {'mapSize': uint2(2048,2048), 'visibilityBufferSize': uint2(0,0), 'cascadeCount': 8, 'visibilityMapBitsPerChannel': 32, 'kSdsmReadbackLatency': 1, 'blurWidth': 5, 'blurSigma': 2.0})
     g.addPass(CSM, 'CSM')
     NormalTexture = createPass('ImageLoader', {'outputSize': IOSize.Default, 'filename': WindowsPath('Yuri/FaceNormal_MAIN.BMP'), 'mips': False, 'srgb': False, 'arrayIndex': 0, 'mipLevel': 0})
     g.addPass(NormalTexture, 'NormalTexture')
