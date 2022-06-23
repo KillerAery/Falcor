@@ -36,6 +36,7 @@ namespace
     const char kTexRoughness[] = "texRoughness";
     const char kTexCavity[] = "texCavity";
     const char kVisBuffer[] = "visBuffer";
+    const char kDepthBuffer[] = "depthBuffer";
 
     const char kTexDiffuse[] = "texDiffuse";
     const char kTexDepth[] = "texDepth";
@@ -66,7 +67,8 @@ extern "C" FALCOR_API_EXPORT void getPasses(Falcor::RenderPassLibrary& lib)
 
 BSSRDFPass::SharedPtr BSSRDFPass::create(RenderContext* pRenderContext, const Dictionary& dict)
 {
-    return BSSRDFPass::SharedPtr(new BSSRDFPass());
+    auto pThis = BSSRDFPass::SharedPtr(new BSSRDFPass());
+    return pThis;
 }
 
 Dictionary BSSRDFPass::getScriptingDictionary()
@@ -86,14 +88,15 @@ RenderPassReflection BSSRDFPass::reflect(const CompileData& compileData)
 {
     // Define the required resources here
     RenderPassReflection reflector;
-    reflector.addInput(kTexAlbedo,"");
-    reflector.addInput(kTexCavity,"");
-    reflector.addInput(kTexNormal,"");
-    reflector.addInput(kTexRoughness,"");
+    reflector.addInput(kTexAlbedo,"Albedo Texture");
+    reflector.addInput(kTexCavity,"Cavity Texture");
+    reflector.addInput(kTexNormal,"Normal Texture");
+    reflector.addInput(kTexRoughness,"Roughness Texture");
+    reflector.addInput(kDepthBuffer, "Need Z-PrePass");
     reflector.addInput(kVisBuffer, "Visibility buffer used for shadowing. Range is [0,1] where 0 means the pixel is fully-shadowed and 1 means the pixel is not shadowed at all").flags(RenderPassReflection::Field::Flags::Optional);
 
     mOutputSize = RenderPassHelpers::calculateIOSize(RenderPassHelpers::IOSize::Fixed, { 1024, 1024 }, compileData.defaultTexDims);
-    reflector.addOutput(kDst, "output texture").texture2D(mOutputSize.x, mOutputSize.y);
+    reflector.addOutput(kDst, "output texture").format(ResourceFormat::RGBA32Float).texture2D(0, 0);
 
     return reflector;
 }
@@ -101,9 +104,13 @@ RenderPassReflection BSSRDFPass::reflect(const CompileData& compileData)
 void BSSRDFPass::execute(RenderContext* pRenderContext, const RenderData& renderData)
 {
     if (!mpScene) return;
+
+    auto pDst = renderData[kDst]->asTexture();
+
     // -------------------------------------------------------------------------------------------------------
     // Diffuse Pass：采用几何 Pass
     // ------------------------------------------------------------------------------------------------------    mpDiffusePassVars->setSampler("gLinearSampler", mpLinearSampler);
+
 
     mpTexAlbedo = renderData[kTexAlbedo]->asTexture();
     mpDiffusePassVars->setTexture("gTexAlbedo", mpTexAlbedo);
@@ -115,38 +122,33 @@ void BSSRDFPass::execute(RenderContext* pRenderContext, const RenderData& render
     mpDiffusePassVars->setTexture("gTexCavity", mpTexCavity);
     mpVisBuffer = renderData[kVisBuffer]->asTexture();
     mpDiffusePassVars->setTexture("gVisBuffer", mpVisBuffer);
-
     mpDiffusePassVars["PerFrameCB"]["gFrameCount"] = mFrameCount++;
-    FALCOR_ASSERT(mpDiffusePassState && mpDiffusePassVars);
+
+    // depth buffer
+    const auto& pDepthBuffer = renderData[kDepthBuffer]->asTexture();
+    mpDiffuseFbo->attachDepthStencilTarget(pDepthBuffer);
 
     // 输出 diffuse texture
     Texture::SharedPtr pTexDiffuse = Texture::create2D(
         mOutputSize.x, mOutputSize.y,
         ResourceFormat::RGBA32Float, 1, 1, nullptr, Resource::BindFlags::RenderTarget | Resource::BindFlags::ShaderResource);
-    mpDiffuseFbo->attachColorTarget(pTexDiffuse,0);
-    // 输出 depth texture
-    Texture::SharedPtr pTexDepth = Texture::create2D(
-        mOutputSize.x, mOutputSize.y,
-        ResourceFormat::D32Float, 1, 1, nullptr, Resource::BindFlags::ShaderResource | Resource::BindFlags::DepthStencil);
-    mpDiffuseFbo->attachDepthStencilTarget(pTexDepth);
+
+    // mpDiffuseFbo->attachColorTarget(pTexDiffuse,0);
+    mpDiffuseFbo->attachColorTarget(pDst, 0);
+
+    // clear view
+    const auto& pRtv = mpDiffuseFbo->getRenderTargetView(0).get();
+    if (pRtv->getResource() != nullptr) pRenderContext->clearRtv(pRtv, float4(0));
 
     mpDiffusePassState->setFbo(mpDiffuseFbo);
     mpScene->rasterize(pRenderContext, mpDiffusePassState.get(), mpDiffusePassVars.get());
 
-
     // -------------------------------------------------------------------------------------------------------
     // SSS Pass：采用屏幕空间 Pass
     // -------------------------------------------------------------------------------------------------------
-    auto pDst = renderData[kDst]->asTexture();
 
+    /*
     FALCOR_ASSERT(pTexDiffuse && pTexDepth && pDst);
-    // Issue warning if image will be resampled. The render pass supports this but image quality may suffer.
-    if (pTexDiffuse->getWidth() != pDst->getWidth() || pTexDiffuse->getHeight() != pDst->getHeight() ||
-        pTexDepth->getWidth() != pDst->getWidth() || pTexDepth->getHeight() != pDst->getHeight()
-        )
-    {
-        logWarning("BSSRDF pass I/O has different dimensions. The image will be resampled.");
-    }
 
     mpSSSPass["gTexDiffuse"] = pTexDiffuse;
     mpSSSPass["gTexDepth"] = pTexDepth;
@@ -162,8 +164,9 @@ void BSSRDFPass::execute(RenderContext* pRenderContext, const RenderData& render
     params.d = mD;
     mpSSSPass->getRootVar()["PerFrameCB"]["gParams"].setBlob(&params, sizeof(params));
 
-    mpSSSFbo->attachColorTarget(pDst, 0);
+    //mpSSSFbo->attachColorTarget(pDst, 0);
     mpSSSPass->execute(pRenderContext, mpSSSFbo);
+    */
 }
 
 void BSSRDFPass::renderUI(Gui::Widgets& widget)
@@ -190,8 +193,11 @@ void BSSRDFPass::createDiffusePass()
 {
     // 写入 stencil 0x1：表示皮肤部分
     DepthStencilState::Desc desc;
+    desc.setStencilEnabled(false);
     desc.setStencilWriteMask(0x1);
-    desc.setDepthWriteMask(true).setDepthFunc(DepthStencilState::Func::LessEqual);
+    desc.setDepthEnabled(true);
+    desc.setDepthWriteMask(false);
+    desc.setDepthFunc(DepthStencilState::Func::LessEqual);
     DepthStencilState::SharedPtr pDsc = DepthStencilState::create(desc);
 
     // 创建 shader

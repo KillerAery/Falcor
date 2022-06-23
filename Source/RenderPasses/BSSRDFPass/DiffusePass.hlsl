@@ -5,7 +5,7 @@ import Utils.Sampling.TinyUniformSampleGenerator;
 
 cbuffer PerFrameCB
 {
-    float  gFrameCount;
+    float gFrameCount;
 };
 
 SamplerState gLinearSampler;
@@ -15,8 +15,6 @@ Texture2D<float3> gTexNormal;
 Texture2D<float> gTexRoughness;
 Texture2D<float> gTexCavity;
 Texture2D<float4> gVisBuffer;
-
-static VSOut vsData;
 
 VSOut vsMain(VSIn vIn)
 {
@@ -67,7 +65,8 @@ PsOut psMain(VSOut vsOut, uint triangleIndex : SV_PrimitiveID)
     finalColor.rgb += bsdf.getProperties(sd).emission;
     finalColor.a = sd.opacity;
 
-    psOut.color = finalColor;
+    float2 texC = vsOut.texC;
+    psOut.color = finalColor * float4(gTexAlbedo.Sample(gLinearSampler, texC), 1.0);
 
 #if defined(_VISUALIZE_CASCADES) && defined(_ENABLE_SHADOWS)
     float3 cascadeColor = gVisBuffer.Load(int3(vsOut.posH.xy, 0)).gba;

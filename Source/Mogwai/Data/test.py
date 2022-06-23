@@ -3,8 +3,8 @@ from falcor import *
 def WindowsPath(s):
     return ("C:/Project/Falcor/Media/") + s
 
-def render_graph_DefaultRenderGraph():
-    g = RenderGraph('BSSRDF')
+def render_graph_SSSRenderGraph():
+    g = RenderGraph('SSSRenderGraph')
     loadRenderPassLibrary('AccumulatePass.dll')
     loadRenderPassLibrary('BSDFViewer.dll')
     loadRenderPassLibrary('Antialiasing.dll')
@@ -59,9 +59,10 @@ def render_graph_DefaultRenderGraph():
     g.addEdge('RoughnessTexture.dst', 'BSSRDFPass.texRoughness')
     g.addEdge('CavityTexture.dst', 'BSSRDFPass.texCavity')
     g.addEdge('NormalTexture.dst', 'BSSRDFPass.texNormal')
+    g.addEdge('DepthPass.depth', 'BSSRDFPass.depthBuffer')
     g.markOutput('BSSRDFPass.dst')
     return g
 
-SSSRenderGraph = render_graph_DefaultRenderGraph()
+SSSRenderGraph = render_graph_SSSRenderGraph()
 try: m.addGraph(SSSRenderGraph)
 except NameError: None
