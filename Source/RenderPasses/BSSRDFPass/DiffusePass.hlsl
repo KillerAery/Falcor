@@ -44,6 +44,18 @@ PsOut psMain(VSOut vsOut, uint triangleIndex : SV_PrimitiveID)
 
     float4 finalColor = float4(0, 0, 0, 1);
 
+    // texture coord
+    float2 texC = sd.uv;
+    // normal
+    float3 normalInTexture = normalize(gTexNormal.Sample(gLinearSampler, texC));
+    //normalInTexture =  normalInTexture*2.0-1.0;
+    float3 wnormal = normalize(vsOut.normalW);
+    float3 wtangent = normalize(vsOut.tangentW.xyz/vsOut.tangentW.w);
+    float3 wbitangent = cross(wnormal, wtangent);
+    float3x3 tbn = float3x3(wtangent, wbitangent, wnormal);
+	sd.N = normalize(mul(tbn, normalInTexture));
+    sd.faceN = sd.N;
+
     // Direct lighting from analytic light sources
     const uint2 pixel = vsOut.posH.xy;
     TinyUniformSampleGenerator sg = TinyUniformSampleGenerator(pixel, gFrameCount);
@@ -65,7 +77,6 @@ PsOut psMain(VSOut vsOut, uint triangleIndex : SV_PrimitiveID)
     finalColor.rgb += bsdf.getProperties(sd).emission;
     finalColor.a = sd.opacity;
 
-    float2 texC = vsOut.texC;
     psOut.color = finalColor * float4(gTexAlbedo.Sample(gLinearSampler, texC), 1.0);
 
 #if defined(_VISUALIZE_CASCADES) && defined(_ENABLE_SHADOWS)
