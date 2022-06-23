@@ -82,9 +82,9 @@ private:
     Texture::SharedPtr mpTexCavity;
     Texture::SharedPtr mpVisBuffer;
 
-    float mUScale = 1.0f;
-    float mVScale = 1.0f;
-    float mD = 1.0f;
+    float mUScale = 0.0002f;
+    float mVScale = 0.0002f;
+    float mD = 0.1f;
     uint32_t mFrameCount = 0;                       ///< Frames rendered. This is used as random seed.
     uint2 mOutputSize;
 };

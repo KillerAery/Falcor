@@ -77,7 +77,9 @@ PsOut psMain(VSOut vsOut, uint triangleIndex : SV_PrimitiveID)
     finalColor.rgb += bsdf.getProperties(sd).emission;
     finalColor.a = sd.opacity;
 
-    psOut.color = finalColor * float4(gTexAlbedo.Sample(gLinearSampler, texC), 1.0);
+    psOut.color = finalColor 
+        * float4(gTexAlbedo.Sample(gLinearSampler, texC), 1.0)
+        * float(gTexCavity.Sample(gLinearSampler, texC));
 
 #if defined(_VISUALIZE_CASCADES) && defined(_ENABLE_SHADOWS)
     float3 cascadeColor = gVisBuffer.Load(int3(vsOut.posH.xy, 0)).gba;

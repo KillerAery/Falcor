@@ -5,8 +5,7 @@ cbuffer PerFrameCB
     SSSParams gParams;
 };
 
-SamplerState gTexDiffuseSampler;
-SamplerState gTexDepthSampler;
+SamplerState gLinearSampler;
 
 Texture2D<float4> gTexDiffuse;
 Texture2D<float> gTexDepth;
@@ -25,8 +24,8 @@ float4 bssrdfFilter3x3(
     const float2 uv, const float d, const float uscale, const float vscale)
 {
     float sum = 1.f;
-    float4 color = texDiffuse.SampleLevel(gTexDiffuseSampler, uv, 0.f);
-    const float4 pos = (uv, texDepth.SampleLevel(gTexDepthSampler, uv, 0.f), 1.f);
+    float4 color = texDiffuse.Sample(gLinearSampler, uv);
+    const float4 pos = (uv, texDepth.Sample(gLinearSampler, uv), 1.f);
 
     float x1u = uscale;
     float x1v = vscale;
@@ -41,10 +40,10 @@ float4 bssrdfFilter3x3(
     [unroll]
     for(int i = 0 ; i < 8 ; i++)
     {
-        float depth = texDepth.SampleLevel(gTexDepthSampler, uv + dt[i], 0.f);
+        float depth = texDepth.Sample(gLinearSampler, uv + dt[i]);
         float dist = length(mul(float4(dt[i],depth,1.f)-pos, gParams.InverseScreenAndProj));
         w = DiffusionProfile(dist, d);
-        color += texDiffuse.SampleLevel(gTexDiffuseSampler, uv + dt[i], 0.f) * w;
+        color += texDiffuse.Sample(gLinearSampler, uv + dt[i]) * w;
         sum += w;
     }
     return color / sum;

@@ -111,7 +111,6 @@ void BSSRDFPass::execute(RenderContext* pRenderContext, const RenderData& render
     // Diffuse Pass：采用几何 Pass
     // ------------------------------------------------------------------------------------------------------    mpDiffusePassVars->setSampler("gLinearSampler", mpLinearSampler);
 
-
     mpTexAlbedo = renderData[kTexAlbedo]->asTexture();
     mpDiffusePassVars->setTexture("gTexAlbedo", mpTexAlbedo);
     mpTexNormal = renderData[kTexNormal]->asTexture();
@@ -130,12 +129,12 @@ void BSSRDFPass::execute(RenderContext* pRenderContext, const RenderData& render
 
     // 输出 diffuse texture
     Texture::SharedPtr pTexDiffuse = Texture::create2D(
-        mOutputSize.x, mOutputSize.y,
+        mpDiffuseFbo->getWidth(), mpDiffuseFbo->getHeight(),
         ResourceFormat::RGBA32Float, 1, 1, nullptr, Resource::BindFlags::RenderTarget | Resource::BindFlags::ShaderResource);
 
-    // mpDiffuseFbo->attachColorTarget(pTexDiffuse,0);
-    mpDiffuseFbo->attachColorTarget(pDst, 0);
-
+    mpDiffuseFbo->attachColorTarget(pTexDiffuse,0);
+    // mpDiffuseFbo->attachColorTarget(pDst, 0);
+    
     // clear view
     const auto& pRtv = mpDiffuseFbo->getRenderTargetView(0).get();
     if (pRtv->getResource() != nullptr) pRenderContext->clearRtv(pRtv, float4(0));
@@ -147,13 +146,9 @@ void BSSRDFPass::execute(RenderContext* pRenderContext, const RenderData& render
     // SSS Pass：采用屏幕空间 Pass
     // -------------------------------------------------------------------------------------------------------
 
-    /*
-    FALCOR_ASSERT(pTexDiffuse && pTexDepth && pDst);
-
-    mpSSSPass["gTexDiffuse"] = pTexDiffuse;
-    mpSSSPass["gTexDepth"] = pTexDepth;
-    mpSSSPass["gTexDiffuseSampler"] = mpLinearSampler;
-    mpSSSPass["gTexDepthSampler"] = mpPointSampler;
+    mpSSSPass["gTexDiffuse"] = mpDiffuseFbo->getColorTexture(0);
+    mpSSSPass["gTexDepth"] = pDepthBuffer;
+    mpSSSPass["gLinearSampler"] = mpLinearSampler;
 
     SSSParams params;
     params.InverseScreenAndProj = static_cast<float4x4>(
@@ -164,17 +159,17 @@ void BSSRDFPass::execute(RenderContext* pRenderContext, const RenderData& render
     params.d = mD;
     mpSSSPass->getRootVar()["PerFrameCB"]["gParams"].setBlob(&params, sizeof(params));
 
-    //mpSSSFbo->attachColorTarget(pDst, 0);
+    mpSSSFbo->attachColorTarget(pDst, 0);
     mpSSSPass->execute(pRenderContext, mpSSSFbo);
-    */
+    
 }
 
 void BSSRDFPass::renderUI(Gui::Widgets& widget)
 {
     if (auto bssrdfGroup = widget.group("BSSRDF", true))
     {
-        bssrdfGroup.var("uScale", mUScale, 0.01f, 10.f, 0.1f, false, "%.1f");
-        bssrdfGroup.var("vScale", mVScale, 0.01f, 10.f, 0.1f, false, "%.1f");
+        bssrdfGroup.var("uScale", mUScale, 0.f, 1.f, 0.0001f, false, "%.1f");
+        bssrdfGroup.var("vScale", mVScale, 0.f, 1.f, 0.0001f, false, "%.1f");
         bssrdfGroup.var("d", mD, 0.1f, 100.0f, 0.1f, false, "%.1f");
     }
 }
