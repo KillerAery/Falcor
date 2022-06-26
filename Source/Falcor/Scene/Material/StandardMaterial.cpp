@@ -47,6 +47,10 @@ namespace Falcor
         mTextureSlotInfo[(uint32_t)TextureSlot::Normal] = { "normal", TextureChannelFlags::RGB, false };
         mTextureSlotInfo[(uint32_t)TextureSlot::Emissive] = { "emissive", TextureChannelFlags::RGB, true };
         mTextureSlotInfo[(uint32_t)TextureSlot::Transmission] = { "transmission", TextureChannelFlags::RGB, true };
+        mTextureSlotInfo[(uint32_t)TextureSlot::Occlusion] = { "occlusion", TextureChannelFlags::Red, false };
+        mTextureSlotInfo[(uint32_t)TextureSlot::Extra1] = { "extra1", TextureChannelFlags::RGB, false };
+        mTextureSlotInfo[(uint32_t)TextureSlot::Extra2] = { "extra2", TextureChannelFlags::RGB, false };
+        mTextureSlotInfo[(uint32_t)TextureSlot::Extra3] = { "extra3", TextureChannelFlags::RGB, false };
     }
 
     bool StandardMaterial::renderUI(Gui::Widgets& widget)

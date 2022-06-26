@@ -308,6 +308,10 @@ namespace Falcor
         textureSlot.value("Normal", Material::TextureSlot::Normal);
         textureSlot.value("Transmission", Material::TextureSlot::Transmission);
         textureSlot.value("Displacement", Material::TextureSlot::Displacement);
+        textureSlot.value("Occlusion", Material::TextureSlot::Occlusion);
+        textureSlot.value("Extra1", Material::TextureSlot::Extra1);
+        textureSlot.value("Extra2", Material::TextureSlot::Extra2);
+        textureSlot.value("Extra3", Material::TextureSlot::Extra3);
 
         // Register Material base class as IMaterial in python to allow deprecated script syntax.
         // TODO: Remove workaround when all scripts have been updated to create derived Material classes.

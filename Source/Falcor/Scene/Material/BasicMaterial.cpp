@@ -203,6 +203,10 @@ namespace Falcor
             updateTextureHandle(pOwner, TextureSlot::Transmission, mData.texTransmission);
             updateTextureHandle(pOwner, TextureSlot::Normal, mData.texNormalMap);
             updateTextureHandle(pOwner, TextureSlot::Displacement, mData.texDisplacementMap);
+            updateTextureHandle(pOwner, TextureSlot::Occlusion, mData.texOcclusion);
+            updateTextureHandle(pOwner, TextureSlot::Extra1, mData.texExtra1);
+            updateTextureHandle(pOwner, TextureSlot::Extra2, mData.texExtra2);
+            updateTextureHandle(pOwner, TextureSlot::Extra3, mData.texExtra3);
 
             // Update default sampler.
             updateDefaultTextureSamplerID(pOwner, mpDefaultSampler);
@@ -308,6 +312,15 @@ namespace Falcor
         case TextureSlot::Displacement:
             mDisplacementMapChanged = true;
             markUpdates(UpdateFlags::DisplacementChanged);
+            break;
+        case TextureSlot::Occlusion:
+            // TODO：Occlusion
+        case TextureSlot::Extra1:
+            // TODO：Extra1
+        case TextureSlot::Extra2:
+            // TODO：Extra2
+        case TextureSlot::Extra3:
+            // TODO：Extra3
             break;
         default:
             break;
@@ -425,6 +438,26 @@ namespace Falcor
         case TextureSlot::Displacement:
         {
             // Nothing to do here, displacement texture is prepared when calling prepareDisplacementMap().
+            break;
+        }
+        case TextureSlot::Occlusion:
+        {
+            // TODO: occulusion slot
+            break;
+        }
+        case TextureSlot::Extra1:
+        {
+            // TODO: extra1 slot
+            break;
+        }
+        case TextureSlot::Extra2:
+        {
+            // TODO: extra2 slot
+            break;
+        }
+        case TextureSlot::Extra3:
+        {
+            // TODO: extra3 slot
             break;
         }
         default:

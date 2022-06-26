@@ -73,6 +73,10 @@ struct BasicMaterialData
     TextureHandle texNormalMap;
     TextureHandle texTransmission;
     TextureHandle texDisplacementMap;
+    TextureHandle texOcclusion;
+    TextureHandle texExtra1;
+    TextureHandle texExtra2;
+    TextureHandle texExtra3;
 
     static const uint kShadingModelBits = 1;
     static const uint kNormalMapTypeBits = 2;

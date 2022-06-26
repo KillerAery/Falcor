@@ -66,6 +66,10 @@ namespace Falcor
             Normal,
             Transmission,
             Displacement,
+            Occlusion,
+            Extra1,
+            Extra2,
+            Extra3,
 
             Count // Must be last
         };
@@ -339,6 +343,10 @@ namespace Falcor
             tostr(Normal);
             tostr(Transmission);
             tostr(Displacement);
+            tostr(Occlusion);
+            tostr(Extra1);
+            tostr(Extra2);
+            tostr(Extra3);
 #undef tostr
         default:
             throw ArgumentError("Invalid texture slot");
