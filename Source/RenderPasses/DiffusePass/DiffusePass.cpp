@@ -27,7 +27,7 @@
  **************************************************************************/
 #include "DiffusePass.h"
 
-const RenderPass::Info DiffusePass::kInfo { "DiffusePass", "Diffuse Lighting" };
+const RenderPass::Info DiffusePass::kInfo { "DiffusePass", "输出 Irridiance Map" };
 
 namespace
 {
@@ -108,10 +108,6 @@ void DiffusePass::execute(RenderContext* pRenderContext, const RenderData& rende
 
 void DiffusePass::renderUI(Gui::Widgets& widget)
 {
-    if (auto group = widget.group("SSS", true))
-    {
-
-    }
 }
 
 void DiffusePass::setScene(RenderContext* pRenderContext, const Scene::SharedPtr& pScene)
