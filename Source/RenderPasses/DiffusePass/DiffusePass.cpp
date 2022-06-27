@@ -69,7 +69,7 @@ RenderPassReflection DiffusePass::reflect(const CompileData& compileData)
     reflector.addInput(kDepthBuffer, "Depth Buffer");
     reflector.addInput(kVisBuffer, "Visibility buffer used for shadowing. Range is [0,1] where 0 means the pixel is fully-shadowed and 1 means the pixel is not shadowed at all").flags(RenderPassReflection::Field::Flags::Optional);
 
-    mOutputSize = RenderPassHelpers::calculateIOSize(RenderPassHelpers::IOSize::Fixed, { 1024, 1024 }, compileData.defaultTexDims);
+    mOutputSize = RenderPassHelpers::calculateIOSize(RenderPassHelpers::IOSize::Default, { 1024, 1024 }, compileData.defaultTexDims);
     reflector.addOutput(kDst, "output texture").format(ResourceFormat::RGBA32Float).texture2D(0, 0);
 
     return reflector;
