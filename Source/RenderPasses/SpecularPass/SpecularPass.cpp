@@ -27,12 +27,15 @@
  **************************************************************************/
 #include "SpecularPass.h"
 
-const RenderPass::Info SpecularPass::kInfo { "SpecularPass", "Specular Lighting" };
+const RenderPass::Info SpecularPass::kInfo { "SpecularPass", "输出 Lighting 计算后的着色效果" };
 
 namespace
 {
+    const char kIrradianceMap[] = "irradianceMap";
     const char kVisBuffer[] = "visBuffer";
     const char kDepthBuffer[] = "depthBuffer";
+    const char kKDiffuse[] = "kDiffuse";
+    const char kKSpecular[] = "kSpecular";
 
     const char kDst[]    = "dst";
 
@@ -67,10 +70,11 @@ RenderPassReflection SpecularPass::reflect(const CompileData& compileData)
 {
     // Define the required resources here
     RenderPassReflection reflector;
+    reflector.addInput(kIrradianceMap, "Irradiance Map");
     reflector.addInput(kDepthBuffer, "Depth Buffer");
     reflector.addInput(kVisBuffer, "Visibility buffer used for shadowing. Range is [0,1] where 0 means the pixel is fully-shadowed and 1 means the pixel is not shadowed at all").flags(RenderPassReflection::Field::Flags::Optional);
 
-    mOutputSize = RenderPassHelpers::calculateIOSize(RenderPassHelpers::IOSize::Fixed, { 1024, 1024 }, compileData.defaultTexDims);
+    mOutputSize = RenderPassHelpers::calculateIOSize(RenderPassHelpers::IOSize::Default, { 1024, 1024 }, compileData.defaultTexDims);
     reflector.addOutput(kDst, "output texture").format(ResourceFormat::RGBA32Float).texture2D(0, 0);
 
     return reflector;
@@ -81,14 +85,46 @@ void SpecularPass::execute(RenderContext* pRenderContext, const RenderData& rend
     if (!mpScene) return;
 
     auto pDst = renderData[kDst]->asTexture();
-    
+
+    // -------------------------------------------------------------------------------------------------------
+    // Specular Pass：采用几何 Pass
+    // ------------------------------------------------------------------------------------------------------
+
+    mpSpecularPassVars->setSampler("gLinearSampler", mpLinearSampler);
+
+    // Visibility Buffer
+    mpVisBuffer = renderData[kVisBuffer]->asTexture();
+    mpSpecularPassVars->setTexture("gVisBuffer", mpVisBuffer);
+
+    // Irradiance Map
+    mpIrradianceMap = renderData[kIrradianceMap]->asTexture();
+    mpSpecularPassVars->setTexture("gIrradianceMap", mpIrradianceMap);
+
+    // Depth Buffer
+    const auto& pDepthBuffer = renderData[kDepthBuffer]->asTexture();
+    mpFbo->attachDepthStencilTarget(pDepthBuffer);
+
+    // 输出 Specular texture
+    mpFbo->attachColorTarget(pDst, 0);
+
+    // clear view
+    const auto& pRtv = mpFbo->getRenderTargetView(0).get();
+    if (pRtv->getResource() != nullptr) pRenderContext->clearRtv(pRtv, float4(0));
+
+    mpSpecularPassVars["PerFrameCB"]["gFrameCount"] = mFrameCount++;
+    mpSpecularPassVars["PerFrameCB"]["gKDiffuse"] = mKDiffuse;
+    mpSpecularPassVars["PerFrameCB"]["gKSpecular"] = mKSpecular;
+
+    mpSpecularPassState->setFbo(mpFbo);
+    mpScene->rasterize(pRenderContext, mpSpecularPassState.get(), mpSpecularPassVars.get());
 }
 
 void SpecularPass::renderUI(Gui::Widgets& widget)
 {
-    if (auto group = widget.group("SSS", true))
+    if (auto group = widget.group("SSS: Diffuse & Specular", true))
     {
-
+        group.var("kDiffuse", mKDiffuse, 0.f, 1.f, 0.00001f, false, "%.6f");
+        group.var("kSpecular", mKSpecular, 0.f, 1.f, 0.00001f, false, "%.6f");
     }
 }
 
@@ -96,11 +132,30 @@ void SpecularPass::setScene(RenderContext* pRenderContext, const Scene::SharedPt
 {
     mpScene = pScene;
     if (!mpScene)return;
+    mpSpecularPassState->getProgram()->addDefines(mpScene->getSceneDefines());
+    mpSpecularPassState->getProgram()->setTypeConformances(mpScene->getTypeConformances());
+    mpSpecularPassVars = GraphicsVars::create(mpSpecularPassState->getProgram()->getReflector());
     createSampler();
 }
 
 void SpecularPass::createSpecularPass()
 {
+    DepthStencilState::Desc desc;
+    desc.setStencilEnabled(false);
+    desc.setDepthEnabled(true);
+    desc.setDepthWriteMask(false);
+    desc.setDepthFunc(DepthStencilState::Func::LessEqual);
+    DepthStencilState::SharedPtr pDsc = DepthStencilState::create(desc);
+
+    // 创建 shader
+    GraphicsProgram::SharedPtr pProgram = GraphicsProgram::createFromFile(
+        kSpecularPassFile, "vsMain", "psMain");
+    mpSpecularPassState = GraphicsState::create();
+    mpSpecularPassState->setProgram(pProgram);
+    mpSpecularPassState->setDepthStencilState(pDsc);
+
+    // 创建 FrameBuffer
+    mpFbo = Fbo::create();
 }
 
 void SpecularPass::createSampler()

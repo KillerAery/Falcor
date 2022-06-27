@@ -68,7 +68,10 @@ private:
     Sampler::SharedPtr mpPointSampler;          // 点采样器定义
 
     Texture::SharedPtr mpVisBuffer;
+    Texture::SharedPtr mpIrradianceMap;
 
     uint32_t mFrameCount = 0;                       ///< Frames rendered. This is used as random seed.
     uint2 mOutputSize;
+    float mKDiffuse = 1.f;
+    float mKSpecular = 0.f;
 };

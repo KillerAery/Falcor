@@ -76,7 +76,7 @@ RenderPassReflection SSSPass::reflect(const CompileData& compileData)
     reflector.addInput(kTexDiffuse, "Diffuse Texture");
     reflector.addInput(kDepthBuffer, "Depth Buffer");
 
-    mOutputSize = RenderPassHelpers::calculateIOSize(RenderPassHelpers::IOSize::Fixed, { 1024, 1024 }, compileData.defaultTexDims);
+    mOutputSize = RenderPassHelpers::calculateIOSize(RenderPassHelpers::IOSize::Default, { 1024, 1024 }, compileData.defaultTexDims);
     reflector.addOutput(kDst, "Output texture").format(ResourceFormat::RGBA32Float).texture2D(0, 0);
 
     return reflector;
@@ -112,7 +112,7 @@ void SSSPass::execute(RenderContext* pRenderContext, const RenderData& renderDat
 
 void SSSPass::renderUI(Gui::Widgets& widget)
 {
-    if (auto group = widget.group("SSS", true))
+    if (auto group = widget.group(" SSS: Screen-based Burley Normalize", true))
     {
         group.var("uScale", mUScale, 0.f, 1.f, 0.00001f, false, "%.6f");
         group.var("vScale", mVScale, 0.f, 1.f, 0.00001f, false, "%.6f");
