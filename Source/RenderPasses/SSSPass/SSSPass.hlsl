@@ -1,62 +1,61 @@
-import RenderPasses.BSSRDFPass.BSSRDFParams;
+import RenderPasses.SSSPass.PoissonDiskSampleGenerator;
 
 cbuffer PerFrameCB
 {
-    SSSParams gParams;
+    float4x4 gInverseScreenAndProj;
+    float3 gD;
+    float gUScale;
+    float gVScale;
 };
 
 SamplerState gLinearSampler;
-
 Texture2D<float4> gTexDiffuse;
 Texture2D<float> gDepthBuffer;
-
-static const float PI = 3.1415926f;
 
 float DiffusionProfile(float r, float d)
 {
     float rd = r/d;
-    return (exp(rd)+exp(rd/3))/(8*PI*d*r);
+    return (exp(-rd)+exp(-rd/3.f))/(8*PI*d*r);
 }
 
-float4 bssrdfFilter3x3(
+float4 bssrdfFilter(
     Texture2D<float4> texDiffuse,
     Texture2D<float> depthBuffer, 
-    const float2 uv, const float d, const float uscale, const float vscale)
-{
-    float sum = 1.f;
-    float4 color = texDiffuse.Sample(gLinearSampler, uv);
-    const float4 pos = (uv, depthBuffer.Sample(gLinearSampler, uv), 1.f);
+    const float2 uv, const float3 d, const float x1u, const float x1v)
+{   
+    static PossionDiskSampleGenerator sg;
 
-    float x1u = uscale;
-    float x1v = vscale;
+    float4 totalColor = texDiffuse.Sample(gLinearSampler, uv);
+    float4 sum = float4(1.f, 1.f, 1.f, 1.f);
 
-    const float2 dt[8] = {
-        float2(-x1u, -x1v),float2(x1u, -x1v),float2(-x1u, x1v),float2(x1u, x1v),
-        float2(0, -x1v),float2(-x1u, 0),float2(0, x1v),float2(x1u, 0),
-    };
-    float w;
-    float4 dist;
-
-    [unroll]
-    for(int i = 0 ; i < 8 ; i++)
+    float depth = depthBuffer.Sample(gLinearSampler, uv);
+    float4 pos = mul(float4(uv,depth,1.f),gInverseScreenAndProj);
+    for(int i = 0; i < NUM_SAMPLES; i++)
     {
-        float depth = depthBuffer.Sample(gLinearSampler, uv + dt[i]);
-        float dist = length(mul(float4(dt[i],depth,1.f)-pos, gParams.InverseScreenAndProj));
-        w = DiffusionProfile(dist, d);
-        color += texDiffuse.Sample(gLinearSampler, uv + dt[i]) * w;
+        float2 dt = sg.getSample(i) * float2(x1u, x1v);
+        float sampleDepth = depthBuffer.Sample(gLinearSampler, uv + dt);
+        float4 samplePos = mul(float4(uv + dt, sampleDepth, 1.f),gInverseScreenAndProj);
+        float dist = length(samplePos - pos);
+        float4 w = float4(
+            DiffusionProfile(dist, d.x),
+            DiffusionProfile(dist, d.y),
+            DiffusionProfile(dist, d.z),
+            1.f);
+        totalColor += texDiffuse.Sample(gLinearSampler, uv + dt) * w;
         sum += w;
     }
-    return color / sum;
+
+    return totalColor / sum;
 }
 
 float4 main(float2 texC : TEXCOORD) : SV_TARGET0
 {
-    return bssrdfFilter3x3(
+    return bssrdfFilter(
         gTexDiffuse, 
         gDepthBuffer, 
         texC, 
-        gParams.d, 
-        gParams.uScale, 
-        gParams.vScale
+        gD, 
+        gUScale, 
+        gVScale
         );
 }

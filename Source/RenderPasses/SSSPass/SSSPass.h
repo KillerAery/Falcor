@@ -27,7 +27,6 @@
  **************************************************************************/
 #pragma once
 #include "Falcor.h"
-#include "SSSParams.slang"
 
 using namespace Falcor;
 
@@ -66,7 +65,7 @@ private:
     Sampler::SharedPtr mpLinearSampler;             // 线性采样器定义
     float mUScale = 0.0002f;
     float mVScale = 0.0002f;
-    float mD = 0.1f;
+    float3 mD = float3(0.436f,0.227f,0.131f);
     uint32_t mFrameCount = 0;                       ///< Frames rendered. This is used as random seed.
     uint2 mOutputSize;
 };

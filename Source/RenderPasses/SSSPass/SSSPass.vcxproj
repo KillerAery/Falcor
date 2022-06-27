@@ -36,7 +36,7 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
-    <ShaderSource Include="SSSParams.slang" />
+    <ShaderSource Include="PoissonDiskSampleGenerator.slang" />
     <ShaderSource Include="SSSPass.hlsl" />
   </ItemGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">

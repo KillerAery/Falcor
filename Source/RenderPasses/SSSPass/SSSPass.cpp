@@ -96,25 +96,29 @@ void SSSPass::execute(RenderContext* pRenderContext, const RenderData& renderDat
     mpSSSPass["gDepthBuffer"] = renderData[kDepthBuffer]->asTexture();
     mpSSSPass["gLinearSampler"] = mpLinearSampler;
 
-    SSSParams params;
-    params.InverseScreenAndProj = static_cast<float4x4>(mpScene->getCamera()->getInvViewProjMatrix());
-    params.uScale = mUScale;
-    params.vScale = mVScale;
-    params.d = mD;
-    mpSSSPass->getRootVar()["PerFrameCB"]["gParams"].setBlob(&params, sizeof(params));
+    mpSSSPass->getRootVar()["PerFrameCB"]["gD"] = mD;
+    mpSSSPass->getRootVar()["PerFrameCB"]["gInverseScreenAndProj"] = static_cast<float4x4>(mpScene->getCamera()->getInvViewProjMatrix());
+    mpSSSPass->getRootVar()["PerFrameCB"]["gUScale"] = mUScale;
+    mpSSSPass->getRootVar()["PerFrameCB"]["gVScale"] = mVScale;
 
     mpFbo->attachColorTarget(pDst, 0);
+
+    // clear view
+    const auto& pRtv = mpFbo->getRenderTargetView(0).get();
+    if (pRtv->getResource() != nullptr) pRenderContext->clearRtv(pRtv, float4(0));
+
     mpSSSPass->execute(pRenderContext, mpFbo);
-    
 }
 
 void SSSPass::renderUI(Gui::Widgets& widget)
 {
     if (auto group = widget.group("SSS", true))
     {
-        group.var("uScale", mUScale, 0.f, 1.f, 0.0001f, false, "%.4f");
-        group.var("vScale", mVScale, 0.f, 1.f, 0.0001f, false, "%.4f");
-        group.var("d", mD, 0.f, 1.f, 0.0001f, false, "%.4f");
+        group.var("uScale", mUScale, 0.f, 1.f, 0.00001f, false, "%.6f");
+        group.var("vScale", mVScale, 0.f, 1.f, 0.00001f, false, "%.6f");
+        group.var("d:red", mD.r, 0.f, 1.f, 0.00001f, false, "%.6f");
+        group.var("d:green", mD.g, 0.f, 1.f, 0.00001f, false, "%.6f");
+        group.var("d:blue", mD.b, 0.f, 1.f, 0.00001f, false, "%.6f");
     }
 }
 
@@ -135,8 +139,10 @@ void SSSPass::createSSSPass()
     DepthStencilState::Desc desc;
     desc.setStencilEnabled(true);
     desc.setStencilReadMask(0x1);
+    desc.setStencilFunc(DepthStencilState::Face::FrontAndBack, DepthStencilState::Func::Equal);
     desc.setDepthWriteMask(false);
     desc.setDepthEnabled(false);
+     
     DepthStencilState::SharedPtr pDsc = DepthStencilState::create(desc);
     mpSSSPass->getState()->setDepthStencilState(pDsc);
 
