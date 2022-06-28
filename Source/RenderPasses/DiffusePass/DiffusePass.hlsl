@@ -43,19 +43,11 @@ PsOut psMain(VSOut vsOut, uint triangleIndex : SV_PrimitiveID)
     let bsdfProperties = bsdf.getProperties(sd);
 
     float4 finalColor = float4(0, 0, 0, 1);
-    float3 normalW = normalize(vsOut.normalW);
-    float3 tangentW = normalize(vsOut.tangentW.xyz/vsOut.tangentW.w);
-    float3 bitangentW = cross(normalW, tangentW);
-    float3x3 tbn = float3x3(tangentW, bitangentW, normalW);
+    float3x3 tbn = float3x3(sd.T, sd.B, sd.N);
     float3 NinTex = gScene.materials.sampleTexture(
         md.texNormalMap, s, sd.uv, 0.f).rgb * 2.f - float3(1.f, 1.f, 1.f);
     float3 N = mul(NinTex, tbn);
-
-    // Diffuse Direct lighting from analytic light sources
-    // const uint2 pixel = vsOut.posH.xy;
-    // TinyUniformSampleGenerator sg = TinyUniformSampleGenerator(pixel, gFrameCount);
-    
-    float3 albedo = gScene.materials.sampleTexture(md.texBaseColor, s, sd.uv, 0.f).rgb;
+   
     for (int i = 0; i < gScene.getLightCount(); i++)
     {
         float shadowFactor = 1;
@@ -67,16 +59,9 @@ PsOut psMain(VSOut vsOut, uint triangleIndex : SV_PrimitiveID)
 
         AnalyticLightSample ls;
         evalLightApproximate(sd.posW, gScene.getLight(i), ls);
-        // finalColor.rgb += bsdf.eval(sd, ls.dir, sg) * ls.Li * shadowFactor;
-        
-        float NdotL = dot(N, ls.dir);
-        finalColor.rgb += NdotL * ls.Li * shadowFactor;
+        float NdotL = max(dot(N, ls.dir), 0.f);
+        finalColor.rgb += NdotL * ls.Li / PI * shadowFactor;
     }
-
-    // finalColor.rgb = albedo;
-
-    // Add the emissive component
-    // finalColor.rgb += bsdf.getProperties(sd).emission;
 
     finalColor.a = sd.opacity;
     psOut.color = finalColor;
