@@ -26,6 +26,7 @@ VSOut vsMain(VSIn vIn)
 struct PsOut
 {
     float4 color : SV_TARGET0;
+    float4 normal : SV_TARGET1;
 };
 
 PsOut psMain(VSOut vsOut, uint triangleIndex : SV_PrimitiveID)
@@ -71,7 +72,7 @@ PsOut psMain(VSOut vsOut, uint triangleIndex : SV_PrimitiveID)
     coord.y = 1.f - coord.y;
     coord.xy /= 2.f;
     float3 irradiance = gIrradianceMap.Sample(gLinearSampler, coord.xy).rgb;
-    finalColor.rgb +=  irradiance / PI * albedo.rgb * gKDiffuse;
+    finalColor.rgb +=  irradiance * albedo.rgb * gKDiffuse;
 
     // Cavity
     float occ = 1.0;
@@ -79,7 +80,8 @@ PsOut psMain(VSOut vsOut, uint triangleIndex : SV_PrimitiveID)
     {
         occ = gScene.materials.sampleTexture(md.texOcclusion, s, sd.uv, 0.f).r;
     }
-    
+
+    psOut.normal = float4(sd.N * 0.5f + 0.5f, 1.0f);
     psOut.color = finalColor * occ;
 
     return psOut;

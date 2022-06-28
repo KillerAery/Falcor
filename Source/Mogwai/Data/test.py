@@ -60,6 +60,8 @@ def render_graph_SSSRenderer():
     g.addPass(DiffusePass, 'DiffusePass')
     SpecularPass = createPass('SpecularPass')
     g.addPass(SpecularPass, 'SpecularPass')
+    SSAO = createPass('SSAO', {'aoMapSize': uint2(1024,1024), 'kernelSize': 16, 'noiseSize': uint2(16,16), 'radius': 0.10000000149011612, 'distribution': SampleDistribution.CosineHammersley, 'blurWidth': 5, 'blurSigma': 2.0})
+    g.addPass(SSAO, 'SSAO')
     g.addEdge('DepthPass.depth', 'SSSPass.depthBuffer')
     g.addEdge('DepthPass.depth', 'CSM.depth')
     g.addEdge('ToneMapper.dst', 'BlitPass.src')
@@ -72,7 +74,10 @@ def render_graph_SSSRenderer():
     g.addEdge('CSM.visibility', 'SpecularPass.visBuffer')
     g.addEdge('DepthPass.depth', 'SpecularPass.depthBuffer')
     g.addEdge('SkyBox.target', 'Composite0.A')
-    g.addEdge('SpecularPass.dst', 'Composite0.B')
+    g.addEdge('SpecularPass.normals', 'SSAO.normals')
+    g.addEdge('SpecularPass.dst', 'SSAO.colorIn')
+    g.addEdge('SSAO.colorOut', 'Composite0.B')
+    g.addEdge('DepthPass.depth', 'SSAO.depth')
     g.markOutput('BlitPass.dst')
     return g
 

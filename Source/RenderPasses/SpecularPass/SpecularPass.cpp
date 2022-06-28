@@ -36,6 +36,7 @@ namespace
     const char kDepthBuffer[] = "depthBuffer";
     const char kKDiffuse[] = "kDiffuse";
     const char kKSpecular[] = "kSpecular";
+    const char kNormals[] = "normals";
 
     const char kDst[]    = "dst";
 
@@ -73,6 +74,7 @@ RenderPassReflection SpecularPass::reflect(const CompileData& compileData)
     reflector.addInput(kIrradianceMap, "Irradiance Map");
     reflector.addInput(kDepthBuffer, "Depth Buffer");
     reflector.addInput(kVisBuffer, "Visibility buffer used for shadowing. Range is [0,1] where 0 means the pixel is fully-shadowed and 1 means the pixel is not shadowed at all").flags(RenderPassReflection::Field::Flags::Optional);
+    reflector.addOutput(kNormals, "World-space shading normal, [0,1] range. Don't forget to transform it to [-1, 1] range").texture2D(0, 0, 1);
 
     mOutputSize = RenderPassHelpers::calculateIOSize(RenderPassHelpers::IOSize::Default, { 1024, 1024 }, compileData.defaultTexDims);
     reflector.addOutput(kDst, "output texture").format(ResourceFormat::RGBA32Float).texture2D(0, 0);
@@ -106,6 +108,8 @@ void SpecularPass::execute(RenderContext* pRenderContext, const RenderData& rend
 
     // 输出 Specular texture
     mpFbo->attachColorTarget(pDst, 0);
+    // 输出 World Noraml Map
+    mpFbo->attachColorTarget(renderData[kNormals]->asTexture(), 1);
 
     // clear view
     const auto& pRtv = mpFbo->getRenderTargetView(0).get();
