@@ -46,7 +46,7 @@ def render_graph_SSSRenderer():
     g.addPass(CSM, 'CSM')
     DepthPass = createPass('DepthPass', {'depthFormat': ResourceFormat.D32Float, 'useAlphaTest': True})
     g.addPass(DepthPass, 'DepthPass')
-    SSSPass = createPass('SSSPass', {'uScale': 0.00019999999494757503, 'vScale': 0.00019999999494757503, 'd': float3(0.436000,0.227000,0.131000)})
+    SSSPass = createPass('SSSPass', {'uScale': 0.005, 'vScale': 0.005, 'd': float3(0.436000,0.227000,0.131000)})
     g.addPass(SSSPass, 'SSSPass')
     BlitPass = createPass('BlitPass', {'filter': SamplerFilter.Linear})
     g.addPass(BlitPass, 'BlitPass')

@@ -63,8 +63,8 @@ private:
     Fbo::SharedPtr mpFbo;                           // FramBuffer
 
     Sampler::SharedPtr mpLinearSampler;             // 线性采样器定义
-    float mUScale = 0.0002f;
-    float mVScale = 0.0002f;
+    float mUScale = 0.02f;
+    float mVScale = 0.02f;
     float3 mD = float3(0.436f,0.227f,0.131f);
     uint32_t mFrameCount = 0;                       ///< Frames rendered. This is used as random seed.
     uint2 mOutputSize;
