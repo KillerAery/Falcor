@@ -1,6 +1,7 @@
 import Scene.Raster;
 import Utils.Math.MathHelpers;
 import Rendering.Lights.LightHelpers;
+import Rendering.Lights.EnvMapLighting;
 import Utils.Sampling.TinyUniformSampleGenerator;
 
 static const float PI = 3.1415926f;
@@ -12,6 +13,7 @@ cbuffer PerFrameCB
     float gKSpecular;
 };
 
+EnvMapLighting gEnvMapLighting;
 SamplerState gLinearSampler;
 Texture2D<float4> gVisBuffer;
 Texture2D<float4> gIrradianceMap;
@@ -48,6 +50,7 @@ PsOut psMain(VSOut vsOut, uint triangleIndex : SV_PrimitiveID)
     float4 finalColor = float4(0, 0, 0, 1);
 
     // Specular lighting from analytic light sources
+    float specular = gScene.materials.sampleTexture(md.texSpecular, s, sd.uv, 0.f).r;
     const uint2 pixel = vsOut.posH.xy;
     TinyUniformSampleGenerator sg = TinyUniformSampleGenerator(pixel, gFrameCount);
     for (int i = 0; i < gScene.getLightCount(); i++)
@@ -61,7 +64,7 @@ PsOut psMain(VSOut vsOut, uint triangleIndex : SV_PrimitiveID)
 
         AnalyticLightSample ls;
         evalLightApproximate(sd.posW, gScene.getLight(i), ls);
-        finalColor.rgb += bsdf.eval(sd, ls.dir, sg) * ls.Li * shadowFactor * gKSpecular;
+        finalColor.rgb += bsdf.eval(sd, ls.dir, sg) * ls.Li * shadowFactor * specular * gKSpecular;
     }
 
     // Diffuse Lighting
@@ -74,15 +77,20 @@ PsOut psMain(VSOut vsOut, uint triangleIndex : SV_PrimitiveID)
     float3 irradiance = gIrradianceMap.Sample(gLinearSampler, coord.xy).rgb;
     finalColor.rgb +=  irradiance * albedo.rgb * gKDiffuse;
 
+    // Add lighting from environment map
+    finalColor.rgb += gEnvMapLighting.evalDiffuse(sd, bsdfProperties) * gKSpecular;
+    finalColor.rgb += gEnvMapLighting.evalSpecular(sd, bsdfProperties, reflect(-sd.V, sd.N)) * gKSpecular * specular;
+
     // Cavity
     float occ = 1.0;
     if (md.texOcclusion.packedData)
     {
         occ = gScene.materials.sampleTexture(md.texOcclusion, s, sd.uv, 0.f).r;
     }
+    finalColor = finalColor * occ;
 
     psOut.normal = float4(sd.N * 0.5f + 0.5f, 1.0f);
-    psOut.color = finalColor * occ;
+    psOut.color = finalColor;
 
     return psOut;
 }

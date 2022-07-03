@@ -27,6 +27,7 @@
  **************************************************************************/
 #pragma once
 #include "Falcor.h"
+#include "Rendering/Lights/EnvMapLighting.h"
 
 using namespace Falcor;
 
@@ -66,6 +67,8 @@ private:
 
     Sampler::SharedPtr mpLinearSampler;         // 线性采样器定义
     Sampler::SharedPtr mpPointSampler;          // 点采样器定义
+
+    EnvMapLighting::SharedPtr mpEnvMapLighting;
 
     Texture::SharedPtr mpVisBuffer;
     Texture::SharedPtr mpIrradianceMap;

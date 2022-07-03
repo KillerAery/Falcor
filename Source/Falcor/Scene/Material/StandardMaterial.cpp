@@ -43,7 +43,8 @@ namespace Falcor
 
         // Setup additional texture slots.
         mTextureSlotInfo[(uint32_t)TextureSlot::BaseColor] = { specGloss ? "diffuse" : "baseColor", TextureChannelFlags::RGBA, true };
-        mTextureSlotInfo[(uint32_t)TextureSlot::Specular] = specGloss ? TextureSlotInfo{ "specular", TextureChannelFlags::RGBA, true } : TextureSlotInfo{ "spec", TextureChannelFlags::Green | TextureChannelFlags::Blue, false };
+        // mTextureSlotInfo[(uint32_t)TextureSlot::Specular] = specGloss ? TextureSlotInfo{ "specular", TextureChannelFlags::RGBA, true } : TextureSlotInfo{ "spec", TextureChannelFlags::Green | TextureChannelFlags::Blue, false };
+        mTextureSlotInfo[(uint32_t)TextureSlot::Specular] = specGloss ? TextureSlotInfo{ "specular", TextureChannelFlags::RGBA, true } : TextureSlotInfo{ "spec", TextureChannelFlags::Red, false };
         mTextureSlotInfo[(uint32_t)TextureSlot::Normal] = { "normal", TextureChannelFlags::RGB, false };
         mTextureSlotInfo[(uint32_t)TextureSlot::Emissive] = { "emissive", TextureChannelFlags::RGB, true };
         mTextureSlotInfo[(uint32_t)TextureSlot::Transmission] = { "transmission", TextureChannelFlags::RGB, true };

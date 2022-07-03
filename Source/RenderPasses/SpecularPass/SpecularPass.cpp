@@ -92,6 +92,20 @@ void SpecularPass::execute(RenderContext* pRenderContext, const RenderData& rend
     // Specular Pass：采用几何 Pass
     // ------------------------------------------------------------------------------------------------------
 
+    // Update env map lighting
+    const auto& pEnvMap = mpScene->getEnvMap();
+    if (pEnvMap && (!mpEnvMapLighting || mpEnvMapLighting->getEnvMap() != pEnvMap))
+    {
+        mpEnvMapLighting = EnvMapLighting::create(pRenderContext, pEnvMap);
+        mpEnvMapLighting->setShaderData(mpSpecularPassVars["gEnvMapLighting"]);
+        mpSpecularPassState->getProgram()->addDefine("_USE_ENV_MAP");
+    }
+    else if (!pEnvMap)
+    {
+        mpEnvMapLighting = nullptr;
+        mpSpecularPassState->getProgram()->removeDefine("_USE_ENV_MAP");
+    }
+
     mpSpecularPassVars->setSampler("gLinearSampler", mpLinearSampler);
 
     // Visibility Buffer
